@@ -1,0 +1,943 @@
+============================================================
+小兔快跑 - 完整源代码
+项目: AI驱动的金融数据分析工具
+技术栈: Taro + React + NestJS + Python
+============================================================
+
+==================== 第一部分: 前端代码 ====================
+
+------------------------------------------------------------
+文件: src/app.tsx
+------------------------------------------------------------
+import { PropsWithChildren } from 'react'
+import { useLaunch } from '@tarojs/taro'
+import './app.css'
+
+function App({ children }: PropsWithChildren<any>) {
+  useLaunch(() => {
+    console.log('App launched.')
+  })
+  return children
+}
+
+export default App
+
+------------------------------------------------------------
+文件: src/app.config.ts
+------------------------------------------------------------
+export default defineAppConfig({
+  pages: [
+    'pages/login/index',
+    'pages/register/index',
+    'pages/index/index',
+    'pages/admin/index'
+  ],
+  window: {
+    backgroundTextStyle: 'light',
+    navigationBarBackgroundColor: '#fff',
+    navigationBarTitleText: '小兔快跑',
+    navigationBarTextStyle: 'black'
+  }
+})
+
+------------------------------------------------------------
+文件: src/network.ts
+------------------------------------------------------------
+import Taro from '@tarojs/taro'
+
+export namespace Network {
+    const createUrl = (url: string): string => {
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url
+        }
+        return `${PROJECT_DOMAIN}${url}`
+    }
+
+    export const request: typeof Taro.request = option => {
+        return Taro.request({
+            ...option,
+            url: createUrl(option.url),
+        })
+    }
+
+    export const uploadFile: typeof Taro.uploadFile = option => {
+        return Taro.uploadFile({
+            ...option,
+            url: createUrl(option.url),
+        })
+    }
+
+    export const downloadFile: typeof Taro.downloadFile = option => {
+        return Taro.downloadFile({
+            ...option,
+            url: createUrl(option.url),
+        })
+    }
+}
+
+------------------------------------------------------------
+文件: src/pages/login/index.tsx (登录页)
+------------------------------------------------------------
+import { View, Text, Input, Button } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState } from 'react'
+import type { FC } from 'react'
+import { Network } from '@/network'
+import './index.css'
+
+const LoginPage: FC = () => {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useDidShow(() => {
+    const loggedIn = Taro.getStorageSync('isLoggedIn')
+    if (loggedIn) {
+      Taro.reLaunch({ url: '/pages/index/index' })
+    }
+  })
+
+  const handleLogin = async () => {
+    if (!username.trim()) {
+      Taro.showToast({ title: '请输入用户名', icon: 'none' })
+      return
+    }
+    if (!password.trim()) {
+      Taro.showToast({ title: '请输入密码', icon: 'none' })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await Network.request({
+        url: '/api/user/login',
+        method: 'POST',
+        data: { username: username.trim(), password: password.trim() }
+      })
+
+      if (res.data.code === 200) {
+        Taro.setStorageSync('userInfo', res.data.data)
+        Taro.setStorageSync('isLoggedIn', true)
+        Taro.setStorageSync('userRole', res.data.data.role)
+        
+        Taro.showToast({ title: '登录成功', icon: 'success' })
+        setTimeout(() => {
+          Taro.reLaunch({ url: '/pages/index/index' })
+        }, 1000)
+      } else {
+        Taro.showToast({ title: res.data.msg || '登录失败', icon: 'none' })
+      }
+    } catch (error) {
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <View className="flex flex-col min-h-screen bg-gradient-to-b from-orange-50 to-white p-6">
+      <View className="flex flex-col items-center mt-16 mb-12">
+        <View className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
+          <Text className="text-white text-3xl font-bold">🐰</Text>
+        </View>
+        <Text className="block text-3xl font-bold text-slate-800">小兔快跑</Text>
+        <Text className="block text-sm text-slate-500 mt-2">AI驱动的金融数据分析工具</Text>
+      </View>
+
+      <View className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100">
+        <Text className="block text-xl font-semibold text-slate-800 mb-6 text-center">欢迎回来</Text>
+        
+        <View className="mb-4">
+          <Text className="block text-sm text-slate-600 mb-2 font-medium">用户名</Text>
+          <View className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+            <Input
+              className="w-full bg-transparent text-base"
+              placeholder="请输入用户名"
+              maxlength={20}
+              value={username}
+              onInput={(e) => setUsername(e.detail.value)}
+            />
+          </View>
+        </View>
+
+        <View className="mb-6">
+          <Text className="block text-sm text-slate-600 mb-2 font-medium">密码</Text>
+          <View className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+            <Input
+              className="w-full bg-transparent text-base"
+              password
+              placeholder="请输入密码"
+              maxlength={20}
+              value={password}
+              onInput={(e) => setPassword(e.detail.value)}
+            />
+          </View>
+        </View>
+
+        <Button
+          style={{
+            width: '100%',
+            backgroundColor: '#FF6B35',
+            color: '#ffffff',
+            borderRadius: '12px',
+            padding: '16px 0',
+            fontSize: '16px',
+            fontWeight: 500,
+            border: 'none'
+          }}
+          onClick={handleLogin}
+          loading={loading}
+          disabled={loading}
+        >
+          {loading ? '登录中...' : '登录'}
+        </Button>
+
+        <View className="flex flex-row justify-center mt-4">
+          <Text className="block text-sm text-slate-500">还没有账号？</Text>
+          <Text
+            className="block text-sm text-orange-500 ml-1 font-medium"
+            onClick={() => Taro.redirectTo({ url: '/pages/register/index' })}
+          >
+            立即注册
+          </Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+export default LoginPage
+
+------------------------------------------------------------
+文件: src/pages/register/index.tsx (注册页)
+------------------------------------------------------------
+import { View, Text, Input, Button } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState } from 'react'
+import type { FC } from 'react'
+import { Network } from '@/network'
+import './index.css'
+
+const RegisterPage: FC = () => {
+  const [username, setUsername] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useDidShow(() => {
+    const loggedIn = Taro.getStorageSync('isLoggedIn')
+    if (loggedIn) {
+      Taro.redirectTo({ url: '/pages/index/index' })
+    }
+  })
+
+  const handleRegister = async () => {
+    if (!username.trim()) {
+      Taro.showToast({ title: '请输入用户名', icon: 'none' })
+      return
+    }
+    if (!phone.trim()) {
+      Taro.showToast({ title: '请输入手机号', icon: 'none' })
+      return
+    }
+    if (!/^1[3-9]\d{9}$/.test(phone.trim())) {
+      Taro.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      return
+    }
+    if (!password.trim()) {
+      Taro.showToast({ title: '请输入密码', icon: 'none' })
+      return
+    }
+    if (password !== confirmPassword) {
+      Taro.showToast({ title: '两次密码输入不一致', icon: 'none' })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await Network.request({
+        url: '/api/user/register',
+        method: 'POST',
+        data: { 
+          username: username.trim(), 
+          phone: phone.trim(),
+          password: password.trim() 
+        }
+      })
+
+      if (res.data.code === 200) {
+        Taro.showToast({ title: '注册成功', icon: 'success' })
+        setTimeout(() => {
+          Taro.redirectTo({ url: '/pages/login/index' })
+        }, 1000)
+      } else {
+        Taro.showToast({ title: res.data.msg || '注册失败', icon: 'none' })
+      }
+    } catch (error) {
+      Taro.showToast({ title: '网络错误，请重试', icon: 'none' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <View className="flex flex-col min-h-screen bg-gradient-to-b from-blue-50 to-white p-6">
+      <View className="flex flex-col items-center mt-12 mb-8">
+        <View className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
+          <Text className="text-white text-3xl font-bold">🐰</Text>
+        </View>
+        <Text className="block text-2xl font-bold text-slate-800">注册账号</Text>
+      </View>
+
+      <View className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100">
+        <View className="mb-4">
+          <Text className="block text-sm text-slate-600 mb-2 font-medium">用户名 *</Text>
+          <View className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+            <Input
+              className="w-full bg-transparent text-base"
+              placeholder="请输入用户名（3-20个字符）"
+              maxlength={20}
+              value={username}
+              onInput={(e) => setUsername(e.detail.value)}
+            />
+          </View>
+        </View>
+
+        <View className="mb-4">
+          <Text className="block text-sm text-slate-600 mb-2 font-medium">手机号 *</Text>
+          <View className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+            <Input
+              className="w-full bg-transparent text-base"
+              type="number"
+              placeholder="请输入手机号"
+              maxlength={11}
+              value={phone}
+              onInput={(e) => setPhone(e.detail.value)}
+            />
+          </View>
+        </View>
+
+        <View className="mb-4">
+          <Text className="block text-sm text-slate-600 mb-2 font-medium">密码 *</Text>
+          <View className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+            <Input
+              className="w-full bg-transparent text-base"
+              password
+              placeholder="请输入密码（至少6个字符）"
+              maxlength={20}
+              value={password}
+              onInput={(e) => setPassword(e.detail.value)}
+            />
+          </View>
+        </View>
+
+        <View className="mb-6">
+          <Text className="block text-sm text-slate-600 mb-2 font-medium">确认密码 *</Text>
+          <View className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+            <Input
+              className="w-full bg-transparent text-base"
+              password
+              placeholder="请再次输入密码"
+              maxlength={20}
+              value={confirmPassword}
+              onInput={(e) => setConfirmPassword(e.detail.value)}
+            />
+          </View>
+        </View>
+
+        <Button
+          style={{
+            width: '100%',
+            backgroundColor: '#FF6B35',
+            color: '#ffffff',
+            borderRadius: '12px',
+            padding: '16px 0',
+            fontSize: '16px',
+            fontWeight: 500,
+            border: 'none'
+          }}
+          onClick={handleRegister}
+          loading={loading}
+          disabled={loading}
+        >
+          {loading ? '注册中...' : '立即注册'}
+        </Button>
+
+        <View className="mt-4 text-center">
+          <Text className="block text-sm text-slate-500">
+            已有账号？{' '}
+            <Text className="text-orange-500 font-medium" onClick={() => Taro.redirectTo({ url: '/pages/login/index' })}>
+              立即登录
+            </Text>
+          </Text>
+        </View>
+      </View>
+
+      <View className="mt-6 p-4 bg-orange-50 rounded-xl border border-orange-100">
+        <Text className="block text-sm text-orange-800 font-medium mb-2">注册说明</Text>
+        <Text className="block text-xs text-orange-600 mb-1">• 新用户注册即送30天使用时长</Text>
+        <Text className="block text-xs text-orange-600 mb-1">• 用户名将用于登录，请牢记</Text>
+        <Text className="block text-xs text-orange-600">• 如需帮助请联系管理员</Text>
+      </View>
+    </View>
+  )
+}
+
+export default RegisterPage
+
+------------------------------------------------------------
+文件: src/pages/index/index.tsx (主页)
+------------------------------------------------------------
+import { View, Text, ScrollView } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState } from 'react'
+import type { FC } from 'react'
+import { Network } from '@/network'
+import './index.css'
+
+type TabType = 'realtime' | 'heartbeat' | 'dragonTiger' | 'trendLeader' | 'newsCatalyst' | 'hotReview'
+
+interface LimitUpStock {
+  code: string
+  name: string
+  price: number
+  change_percent: number
+  limit_up_time: string
+  reason: string
+}
+
+interface DragonTigerStock {
+  code: string
+  name: string
+  price: number
+  change_percent: number
+  net_buy: number
+  buy_amount: number
+  sell_amount: number
+  famous_buyers: string[]
+}
+
+interface ContinuousLimitUpStock {
+  code: string
+  name: string
+  price: number
+  change_percent: number
+  continuous_days: number
+  industry: string
+  turnover_rate: number
+  amount: number
+}
+
+interface ContinuousLimitUpData {
+  stocks: ContinuousLimitUpStock[]
+  by_days: Record<string, ContinuousLimitUpStock[]>
+  trading_day: string
+}
+
+interface HotReviewData {
+  date: string
+  summary: string
+  hot_stocks: any[]
+  analysis: string
+}
+
+interface NewsCatalyst {
+  type: string
+  title: string
+  content: string
+  importance: string
+  source: string
+  publish_time: string
+  suggestion: string
+}
+
+const IndexPage: FC = () => {
+  const [activeTab, setActiveTab] = useState<TabType>('realtime')
+  const [continuousLimitUpData, setContinuousLimitUpData] = useState<ContinuousLimitUpData | null>(null)
+  const [limitUpStocks, setLimitUpStocks] = useState<LimitUpStock[]>([])
+  const [dragonTigerData, setDragonTigerData] = useState<DragonTigerStock[]>([])
+  const [newsCatalystData, setNewsCatalystData] = useState<NewsCatalyst[]>([])
+  const [hotReviewData, setHotReviewData] = useState<HotReviewData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useDidShow(() => {
+    const loggedIn = Taro.getStorageSync('isLoggedIn')
+    const userRole = Taro.getStorageSync('userRole')
+    if (!loggedIn) {
+      Taro.redirectTo({ url: '/pages/login/index' })
+    } else {
+      setIsLoggedIn(true)
+      setIsAdmin(userRole === 'admin')
+      loadData()
+    }
+  })
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      await loadContinuousLimitUpData()
+    } catch (error) {
+      console.error('加载数据错误:', error)
+    } finally {
+      setLoading(false)
+    }
+    
+    Promise.all([
+      loadLimitUpStocks(),
+      loadDragonTigerData(),
+      loadNewsCatalystData(),
+      loadHotReviewData()
+    ]).catch(err => console.error('加载其他数据错误:', err))
+  }
+
+  const loadContinuousLimitUpData = async () => {
+    try {
+      const res = await Network.request({
+        url: '/api/stock/continuous-limit-up',
+        method: 'GET'
+      })
+      if (res.data.code === 200 && res.data.data) {
+        setContinuousLimitUpData(res.data.data)
+      }
+    } catch (error) {
+      console.error('加载连板数据失败:', error)
+    }
+  }
+
+  const loadLimitUpStocks = async () => {
+    try {
+      const res = await Network.request({
+        url: '/api/stock/limit-up',
+        method: 'GET'
+      })
+      if (res.data.code === 200 && res.data.data) {
+        setLimitUpStocks(res.data.data)
+      }
+    } catch (error) {
+      console.error('加载涨停数据失败:', error)
+    }
+  }
+
+  const loadDragonTigerData = async () => {
+    try {
+      const res = await Network.request({
+        url: '/api/stock/dragon-tiger',
+        method: 'GET'
+      })
+      if (res.data.code === 200 && res.data.data) {
+        setDragonTigerData(res.data.data)
+      }
+    } catch (error) {
+      console.error('加载龙虎榜数据失败:', error)
+    }
+  }
+
+  const loadNewsCatalystData = async () => {
+    try {
+      const res = await Network.request({
+        url: '/api/stock/news-catalyst',
+        method: 'GET'
+      })
+      if (res.data.code === 200 && res.data.data) {
+        setNewsCatalystData(res.data.data)
+      }
+    } catch (error) {
+      console.error('加载新闻数据失败:', error)
+    }
+  }
+
+  const loadHotReviewData = async () => {
+    try {
+      const res = await Network.request({
+        url: '/api/stock/hot-review',
+        method: 'GET'
+      })
+      if (res.data.code === 200 && res.data.data) {
+        setHotReviewData(res.data.data)
+      }
+    } catch (error) {
+      console.error('加载热点复盘数据失败:', error)
+    }
+  }
+
+  const formatAmount = (amount: number): string => {
+    if (amount >= 100000000) return (amount / 100000000).toFixed(2) + '亿'
+    if (amount >= 10000) return (amount / 10000).toFixed(2) + '万'
+    return amount.toFixed(2)
+  }
+
+  const tabs = [
+    { key: 'realtime', name: '连板梯队', icon: '📈' },
+    { key: 'heartbeat', name: '心跳时刻', icon: '💓' },
+    { key: 'dragonTiger', name: '龙虎榜单', icon: '🐉' },
+    { key: 'newsCatalyst', name: '新闻催化', icon: '📰' },
+    { key: 'hotReview', name: '热点复盘', icon: '🔥' }
+  ]
+
+  const renderContinuousLimitUp = () => {
+    if (!continuousLimitUpData) {
+      return (
+        <View className="flex items-center justify-center h-40">
+          <Text className="block text-slate-400">暂无数据</Text>
+        </View>
+      )
+    }
+
+    const { by_days, trading_day } = continuousLimitUpData
+    const dayKeys = Object.keys(by_days).sort((a, b) => {
+      const numA = parseInt(a.replace('连板', ''))
+      const numB = parseInt(b.replace('连板', ''))
+      return numB - numA
+    })
+
+    return (
+      <ScrollView scrollY className="h-full">
+        <View className="p-4">
+          <View className="flex flex-row justify-between items-center mb-4">
+            <View>
+              <Text className="block text-lg font-semibold text-slate-800">连板梯队</Text>
+              <Text className="block text-xs text-slate-400 mt-1">交易日: {trading_day}</Text>
+            </View>
+          </View>
+
+          {dayKeys.map(dayKey => {
+            const stocks = by_days[dayKey]
+            if (!stocks || stocks.length === 0) return null
+
+            return (
+              <View key={dayKey} className="mb-4">
+                <View className="flex flex-row items-center mb-2">
+                  <View style={{ backgroundColor: '#EF4444', paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4, borderRadius: 6 }}>
+                    <Text className="block text-sm text-white font-bold">{dayKey}</Text>
+                  </View>
+                  <Text className="block text-xs text-slate-400 ml-2">{stocks.length}只</Text>
+                </View>
+
+                {stocks.map((stock) => (
+                  <View key={stock.code} className="bg-white rounded-xl p-4 mb-2 border border-slate-200">
+                    <View className="flex flex-row justify-between items-center">
+                      <View className="flex-1">
+                        <View className="flex flex-row items-center">
+                          <Text className="block text-base font-semibold text-slate-800 mr-2">{stock.name}</Text>
+                          <Text className="block text-xs text-slate-400">{stock.code}</Text>
+                        </View>
+                        <Text className="block text-xs text-slate-400 mt-1">{stock.industry || '未知行业'}</Text>
+                      </View>
+                      <View className="text-right">
+                        <Text className="block text-lg font-bold text-red-500">
+                          +{stock.change_percent.toFixed(2)}%
+                        </Text>
+                        <Text className="block text-sm text-slate-600">¥{stock.price.toFixed(2)}</Text>
+                      </View>
+                    </View>
+                    <View className="mt-2 pt-2 border-t border-slate-100">
+                      <Text className="block text-xs text-slate-400">
+                        换手: {stock.turnover_rate.toFixed(2)}% · 成交额: {formatAmount(stock.amount)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )
+          })}
+        </View>
+      </ScrollView>
+    )
+  }
+
+  const renderLimitUpStocks = () => {
+    if (loading) {
+      return (
+        <View className="flex items-center justify-center h-40">
+          <Text className="block text-slate-400">加载中...</Text>
+        </View>
+      )
+    }
+
+    return (
+      <ScrollView scrollY className="h-full">
+        <View className="p-4">
+          <Text className="block text-lg font-semibold text-slate-800 mb-4">涨停个股</Text>
+          
+          {limitUpStocks.length === 0 ? (
+            <View className="flex items-center justify-center h-40">
+              <Text className="block text-slate-400">暂无涨停数据</Text>
+            </View>
+          ) : (
+            limitUpStocks.map((stock, index) => (
+              <View key={stock.code + index} className="bg-white rounded-xl p-4 mb-3 border border-slate-200">
+                <View className="flex flex-row justify-between items-start">
+                  <View className="flex-1">
+                    <View className="flex flex-row items-center mb-1">
+                      <Text className="block text-base font-semibold text-slate-800 mr-2">{stock.name}</Text>
+                      <View style={{ backgroundColor: '#EF4444', paddingLeft: 6, paddingRight: 6, paddingTop: 2, paddingBottom: 2, borderRadius: 4 }}>
+                        <Text className="block text-xs text-white font-medium">涨停</Text>
+                      </View>
+                    </View>
+                    <Text className="block text-sm text-slate-500">{stock.code}</Text>
+                  </View>
+                  <View className="text-right">
+                    <Text className="block text-xl font-bold text-red-500">+{stock.change_percent.toFixed(2)}%</Text>
+                    <Text className="block text-sm text-slate-600">¥{stock.price.toFixed(2)}</Text>
+                  </View>
+                </View>
+                {stock.reason && (
+                  <View className="mt-2 pt-2 border-t border-slate-100">
+                    <Text className="block text-xs text-slate-500">涨停原因: {stock.reason}</Text>
+                  </View>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    )
+  }
+
+  const renderDragonTiger = () => {
+    return (
+      <ScrollView scrollY className="h-full">
+        <View className="p-4">
+          <Text className="block text-lg font-semibold text-slate-800 mb-4">龙虎榜</Text>
+          
+          {dragonTigerData.length === 0 ? (
+            <View className="flex items-center justify-center h-40">
+              <Text className="block text-slate-400">暂无龙虎榜数据</Text>
+            </View>
+          ) : (
+            dragonTigerData.map((stock, index) => (
+              <View key={stock.code + index} className="bg-white rounded-xl p-4 mb-3 border border-slate-200">
+                <View className="flex flex-row justify-between items-center mb-2">
+                  <View>
+                    <Text className="block text-base font-semibold text-slate-800">{stock.name}</Text>
+                    <Text className="block text-xs text-slate-400">{stock.code}</Text>
+                  </View>
+                  <Text className="block text-lg font-bold text-red-500">+{stock.change_percent.toFixed(2)}%</Text>
+                </View>
+                <View className="flex flex-row gap-2">
+                  <View className="flex-1 bg-red-50 rounded-lg p-2">
+                    <Text className="block text-xs text-slate-500">净买入</Text>
+                    <Text className="block text-sm text-red-500 font-bold">{formatAmount(stock.net_buy)}</Text>
+                  </View>
+                  <View className="flex-1 bg-green-50 rounded-lg p-2">
+                    <Text className="block text-xs text-slate-500">卖出</Text>
+                    <Text className="block text-sm text-green-500 font-bold">{formatAmount(stock.sell_amount)}</Text>
+                  </View>
+                </View>
+                {stock.famous_buyers && stock.famous_buyers.length > 0 && (
+                  <Text className="block text-xs text-slate-500 mt-2">知名买方: {stock.famous_buyers.join('、')}</Text>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    )
+  }
+
+  const renderNewsCatalyst = () => {
+    return (
+      <ScrollView scrollY className="h-full">
+        <View className="p-4">
+          <Text className="block text-lg font-semibold text-slate-800 mb-4">新闻催化</Text>
+          
+          {newsCatalystData.length === 0 ? (
+            <View className="flex items-center justify-center h-40">
+              <Text className="block text-slate-400">暂无新闻数据</Text>
+            </View>
+          ) : (
+            newsCatalystData.map((news, index) => (
+              <View key={index} className="bg-white rounded-xl p-4 mb-3 border border-slate-200">
+                <View className="flex flex-row items-center mb-2">
+                  <View style={{ 
+                    backgroundColor: news.importance === 'high' ? '#EF4444' : '#F59E0B',
+                    paddingLeft: 6, paddingRight: 6, paddingTop: 2, paddingBottom: 2, borderRadius: 4 
+                  }}>
+                    <Text className="block text-xs text-white">{news.importance === 'high' ? '重要' : '一般'}</Text>
+                  </View>
+                  <Text className="block text-xs text-slate-400 ml-2">{news.type}</Text>
+                </View>
+                <Text className="block text-base font-medium text-slate-800 mb-2">{news.title}</Text>
+                <Text className="block text-sm text-slate-600 mb-2">{news.content.substring(0, 100)}...</Text>
+                <View className="flex flex-row justify-between">
+                  <Text className="block text-xs text-slate-400">{news.source}</Text>
+                  <Text className="block text-xs text-slate-400">{news.publish_time}</Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    )
+  }
+
+  const renderHotReview = () => {
+    if (!hotReviewData) {
+      return (
+        <View className="flex items-center justify-center h-40">
+          <Text className="block text-slate-400">加载中...</Text>
+        </View>
+      )
+    }
+
+    return (
+      <ScrollView scrollY className="h-full">
+        <View className="p-4">
+          <Text className="block text-lg font-semibold text-slate-800 mb-2">热点复盘</Text>
+          <Text className="block text-xs text-slate-400 mb-4">{hotReviewData.date}</Text>
+          
+          {hotReviewData.summary && (
+            <View className="bg-orange-50 rounded-xl p-4 mb-4 border border-orange-100">
+              <Text className="block text-sm font-medium text-orange-800 mb-2">市场概述</Text>
+              <Text className="block text-sm text-orange-700">{hotReviewData.summary}</Text>
+            </View>
+          )}
+
+          {hotReviewData.hot_stocks && hotReviewData.hot_stocks.length > 0 && (
+            <View>
+              <Text className="block text-base font-semibold text-slate-800 mb-3">热门股票</Text>
+              {hotReviewData.hot_stocks.map((stock: any, index: number) => (
+                <View key={index} className="bg-white rounded-xl p-4 mb-3 border border-slate-200">
+                  <View className="flex flex-row justify-between items-center mb-2">
+                    <View>
+                      <Text className="block text-base font-semibold text-slate-800">{stock.name}</Text>
+                      <Text className="block text-xs text-slate-400">{stock.code}</Text>
+                    </View>
+                    <View className="text-right">
+                      <Text className="block text-lg font-bold text-red-500">+{stock.change_percent?.toFixed(2)}%</Text>
+                      <View style={{ backgroundColor: '#F59E0B', paddingLeft: 6, paddingRight: 6, paddingTop: 2, paddingBottom: 2, borderRadius: 4 }}>
+                        <Text className="block text-xs text-white font-bold">{stock.heat_score}分</Text>
+                      </View>
+                    </View>
+                  </View>
+                  {stock.reasons && stock.reasons.length > 0 && (
+                    <Text className="block text-xs text-slate-500 mt-1">原因: {stock.reasons.join('; ')}</Text>
+                  )}
+                  {stock.suggestion && (
+                    <Text className="block text-xs text-blue-600 mt-1">{stock.suggestion}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {hotReviewData.analysis && (
+            <View className="bg-blue-50 rounded-xl p-4 mt-4 border border-blue-100">
+              <Text className="block text-sm font-medium text-blue-800 mb-2">AI分析</Text>
+              <Text className="block text-sm text-blue-700">{hotReviewData.analysis}</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    )
+  }
+
+  const renderContent = () => {
+    if (!isLoggedIn) return null
+
+    switch (activeTab) {
+      case 'realtime':
+        return renderContinuousLimitUp()
+      case 'heartbeat':
+        return renderLimitUpStocks()
+      case 'dragonTiger':
+        return renderDragonTiger()
+      case 'newsCatalyst':
+        return renderNewsCatalyst()
+      case 'hotReview':
+        return renderHotReview()
+      default:
+        return renderContinuousLimitUp()
+    }
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <View className="flex items-center justify-center min-h-screen">
+        <Text className="block text-slate-400">正在验证登录状态...</Text>
+      </View>
+    )
+  }
+
+  return (
+    <View className="flex flex-col min-h-screen bg-slate-100">
+      <View className="bg-white px-4 py-3 border-b border-slate-200">
+        <View className="flex flex-row justify-between items-center">
+          <View>
+            <Text className="block text-xl font-bold text-slate-800">小兔快跑</Text>
+            <Text className="block text-xs text-slate-400">AI驱动的金融数据分析</Text>
+          </View>
+          <View className="flex flex-row items-center">
+            {isAdmin && (
+              <View
+                className="mr-3 px-3 py-1 bg-blue-500 rounded-lg"
+                onClick={() => Taro.navigateTo({ url: '/pages/admin/index' })}
+              >
+                <Text className="block text-xs text-white">管理</Text>
+              </View>
+            )}
+            <View
+              className="px-3 py-1 bg-red-500 rounded-lg"
+              onClick={() => {
+                Taro.showModal({
+                  title: '提示',
+                  content: '确定要退出登录吗？',
+                  success: (res) => {
+                    if (res.confirm) {
+                      Taro.removeStorageSync('isLoggedIn')
+                      Taro.removeStorageSync('userInfo')
+                      Taro.removeStorageSync('userRole')
+                      Taro.redirectTo({ url: '/pages/login/index' })
+                    }
+                  }
+                })
+              }}
+            >
+              <Text className="block text-xs text-white">退出</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View className="bg-white border-b border-slate-200">
+        <ScrollView scrollX className="whitespace-nowrap">
+          <View className="flex flex-row px-2 py-2">
+            {tabs.map((tab) => (
+              <View
+                key={tab.key}
+                className={`px-4 py-2 rounded-lg mr-2 ${activeTab === tab.key ? 'bg-orange-500' : 'bg-slate-100'}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <Text className={`block text-sm ${activeTab === tab.key ? 'text-white' : 'text-slate-600'}`}>
+                  {tab.icon} {tab.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+
+      <View className="flex-1 overflow-hidden">
+        {renderContent()}
+      </View>
+
+      <View className="p-4 bg-amber-50 border-t border-amber-200">
+        <Text className="block text-xs text-amber-700 text-center">
+          ⚠️ 数据仅供参考，不作为投资依据{'\n'}股市有风险，投资需谨慎
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+export default IndexPage
+
+
+==================== 第二部分: 后端代码 ====================
+
+【由于代码太长，请访问 https://你的域名/xiaotu-source-code.txt 查看完整内容】
+
+============================================================
