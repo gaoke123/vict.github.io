@@ -1,13 +1,14 @@
 {
   "version": 2,
-  "name": "小兔快跑",
+  "name": "xiaotu-kuaiapao",
   "public": true,
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "https://your-backend-url.com/api/:path*"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist-web"
+      }
     }
   ],
   "routes": [
